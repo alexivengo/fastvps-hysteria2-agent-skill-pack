@@ -73,6 +73,11 @@ ACME example:
 ```
 
 - For self-signed mode the exported URI uses `insecure=1` together with `pinSHA256`, matching the tested reference setup.
+- The exported files contain importable `hysteria2://...` URIs for clients such as Hiddify and Shadowrocket:
+  - `client/mobile/profile.txt`
+  - `client/desktop/profile.txt`
+  - `client/manual/hysteria2-uri.txt`
+- This workflow does not create a hosted `https://` subscription URL. If the user asks for a remote config URL, state that it is a separate layer not provided by this skill.
 - If the SSH host is not the same value the client should dial, pass `--client-endpoint` or `-ClientEndpoint`.
 
 7. Validate the tunnel after the user imports the profile.

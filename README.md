@@ -318,15 +318,24 @@ Use the installed fastvps-hysteria2-setup skill and deploy Hysteria2 on FastVPS 
 - `client/desktop/profile.txt`
 - `client/manual/hysteria2-uri.txt`
 - `client/sing-box/hy2-outbound-snippet.json`
-14. Локальную генерацию делают helper-скрипты:
+14. Для `Hiddify`, `Shadowrocket` и похожих клиентов агент генерирует именно импортируемый URI вида `hysteria2://...`.
+- `client/mobile/profile.txt` содержит готовый URI для мобильных клиентов
+- `client/desktop/profile.txt` содержит готовый URI для desktop-клиентов
+- `client/manual/hysteria2-uri.txt` содержит резервный URI для ручного импорта
+- в `self-signed` режиме URI включает `insecure=1` и `pinSHA256`
+- в `acme` режиме URI включает `sni=<domain>` и `insecure=0`
+15. Это не `https://` subscription URL и не удалённый config endpoint.
+- Skill в текущем виде генерирует локальные импортируемые URI и `sing-box` snippet.
+- Если нужен именно subscription URL, его нужно строить отдельным сервисом поверх этого workflow.
+16. Локальную генерацию делают helper-скрипты:
 - [client_artifacts_fastvps_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/client_artifacts_fastvps_hysteria2.sh)
 - [client_artifacts_fastvps_hysteria2.ps1](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/client_artifacts_fastvps_hysteria2.ps1)
-15. Пользователь импортирует профиль в клиент и подключается.
-16. После подключения агент или пользователь запускает проверки:
+17. Пользователь импортирует профиль в клиент и подключается.
+18. После подключения агент или пользователь запускает проверки:
 - macOS: [check_macos_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/check_macos_hysteria2.sh)
 - Linux: [check_linux_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/check_linux_hysteria2.sh)
 - Windows: [check_windows_hysteria2.ps1](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/check_windows_hysteria2.ps1)
-17. Дополнительно можно пройти BrowserLeaks-проверки из:
+19. Дополнительно можно пройти BrowserLeaks-проверки из:
 - [validation.md](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/references/validation.md)
 
 ## Быстрый сценарий без домена
