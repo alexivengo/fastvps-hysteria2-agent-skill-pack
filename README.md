@@ -1,6 +1,14 @@
-# FastVPS Hysteria2 Codex Skill
+# FastVPS Hysteria2 Multi-Agent Skill Pack
 
-Публичный репозиторий со skill для Codex, который разворачивает и валидирует `Hysteria2` на `FastVPS`.
+Публичный репозиторий со skill pack для агентных CLI, который разворачивает и валидирует `Hysteria2` на `FastVPS`.
+
+Поддерживаемые среды:
+- `Codex`
+- `Claude Code`
+- `OpenCode`
+- `Gemini CLI`
+
+Ниже я использую название `Claude Code`. Если под `Cloud Code` вы имели в виду именно его, всё покрыто.
 
 Репозиторий подготовлен для публикации:
 - без реальных IP-адресов, доменов, паролей и токенов;
@@ -8,7 +16,7 @@
 - с документацией для людей на русском языке;
 - с внутренними инструкциями skill для агента в рабочем виде.
 
-## Что умеет skill
+## Что умеет skill pack
 
 - подготавливать `Hysteria2` на `Ubuntu 24.04` в `FastVPS`;
 - работать в двух режимах:
@@ -18,6 +26,8 @@
 - переиспользовать текущий пароль и self-signed сертификат при повторном запуске;
 - генерировать клиентские артефакты для импорта в клиенты;
 - проверять маршрут, IP, DNS и утечки на `macOS`, `Linux` и `Windows`.
+- ставиться как skill в несколько agent CLI;
+- добавлять vendor-specific команды для `Claude Code`, `OpenCode` и `Gemini CLI`.
 
 ## Структура репозитория
 
@@ -26,6 +36,8 @@ fastvps-hysteria2-codex-skill/
 ├── README.md
 ├── LICENSE
 ├── .gitignore
+├── scripts/
+├── integrations/
 └── fastvps-hysteria2-setup/
     ├── SKILL.md
     ├── agents/openai.yaml
@@ -33,13 +45,53 @@ fastvps-hysteria2-codex-skill/
     └── scripts/
 ```
 
-`fastvps-hysteria2-setup/` — это сам skill. Его можно копировать в каталог skills вашего Codex.
+`fastvps-hysteria2-setup/` — канонический skill.
+
+`scripts/` — установщики для разных agent CLI.
+
+`integrations/` — vendor-specific command files для `Claude Code`, `OpenCode` и `Gemini CLI`.
 
 ## Установка
 
-### Вариант 1. Ручная установка
+### Быстрая установка через installer
 
-Скопируйте каталог `fastvps-hysteria2-setup` в локальный каталог skills:
+macOS / Linux:
+
+```bash
+git clone git@github.com:alexivengo/fastvps-hysteria2-codex-skill.git
+cd fastvps-hysteria2-codex-skill
+./scripts/install_skill.sh --target codex
+./scripts/install_skill.sh --target claude-code
+./scripts/install_skill.sh --target opencode
+./scripts/install_skill.sh --target gemini-cli
+```
+
+Или сразу всё:
+
+```bash
+./scripts/install_skill.sh --target all
+```
+
+Windows PowerShell:
+
+```powershell
+git clone git@github.com:alexivengo/fastvps-hysteria2-codex-skill.git
+cd fastvps-hysteria2-codex-skill
+.\scripts\install_skill.ps1 -Target codex
+.\scripts\install_skill.ps1 -Target claude-code
+.\scripts\install_skill.ps1 -Target opencode
+.\scripts\install_skill.ps1 -Target gemini-cli
+```
+
+Или сразу всё:
+
+```powershell
+.\scripts\install_skill.ps1 -Target all
+```
+
+### Ручная установка по средам
+
+#### Codex
 
 macOS / Linux:
 
@@ -55,15 +107,70 @@ New-Item -ItemType Directory -Force "$HOME\\.codex\\skills" | Out-Null
 Copy-Item -Recurse -Force .\\fastvps-hysteria2-setup "$HOME\\.codex\\skills\\"
 ```
 
-### Вариант 2. Через Git clone
+#### Claude Code
+
+macOS / Linux:
 
 ```bash
-git clone git@github.com:alexivengo/fastvps-hysteria2-codex-skill.git
-cd fastvps-hysteria2-codex-skill
-cp -R ./fastvps-hysteria2-setup ~/.codex/skills/
+mkdir -p ~/.claude/skills ~/.claude/commands
+cp -R ./fastvps-hysteria2-setup ~/.claude/skills/
+cp ./integrations/claude-code/commands/fastvps-hysteria2.md ~/.claude/commands/
 ```
 
-## Как использовать
+Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\\.claude\\skills" | Out-Null
+New-Item -ItemType Directory -Force "$HOME\\.claude\\commands" | Out-Null
+Copy-Item -Recurse -Force .\\fastvps-hysteria2-setup "$HOME\\.claude\\skills\\"
+Copy-Item -Force .\\integrations\\claude-code\\commands\\fastvps-hysteria2.md "$HOME\\.claude\\commands\\"
+```
+
+#### OpenCode
+
+`OpenCode` умеет читать skills из `~/.agents/skills`, поэтому здесь используется shared path.
+
+macOS / Linux:
+
+```bash
+mkdir -p ~/.agents/skills ~/.config/opencode/command
+cp -R ./fastvps-hysteria2-setup ~/.agents/skills/
+cp ./integrations/opencode/command/fastvps-hysteria2.md ~/.config/opencode/command/
+```
+
+Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\\.agents\\skills" | Out-Null
+New-Item -ItemType Directory -Force "$HOME\\.config\\opencode\\command" | Out-Null
+Copy-Item -Recurse -Force .\\fastvps-hysteria2-setup "$HOME\\.agents\\skills\\"
+Copy-Item -Force .\\integrations\\opencode\\command\\fastvps-hysteria2.md "$HOME\\.config\\opencode\\command\\"
+```
+
+#### Gemini CLI
+
+`Gemini CLI` тоже может читать skills из `~/.agents/skills`, поэтому используется тот же shared path.
+
+macOS / Linux:
+
+```bash
+mkdir -p ~/.agents/skills ~/.gemini/commands
+cp -R ./fastvps-hysteria2-setup ~/.agents/skills/
+cp ./integrations/gemini-cli/commands/fastvps-hysteria2.toml ~/.gemini/commands/
+```
+
+Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\\.agents\\skills" | Out-Null
+New-Item -ItemType Directory -Force "$HOME\\.gemini\\commands" | Out-Null
+Copy-Item -Recurse -Force .\\fastvps-hysteria2-setup "$HOME\\.agents\\skills\\"
+Copy-Item -Force .\\integrations\\gemini-cli\\commands\\fastvps-hysteria2.toml "$HOME\\.gemini\\commands\\"
+```
+
+## Как использовать в разных агентах
+
+### Codex
 
 После установки можно просить агента использовать skill по имени:
 
@@ -75,6 +182,40 @@ cp -R ./fastvps-hysteria2-setup ~/.codex/skills/
 
 ```text
 Используй $fastvps-hysteria2-setup, разверни Hysteria2 на FastVPS с Let's Encrypt и проверь IP/DNS/WebRTC утечки.
+```
+
+### Claude Code
+
+После установки будет доступна команда:
+
+```text
+/fastvps-hysteria2
+```
+
+Если аргументы команды в вашей версии не подставляются автоматически, просто вызывайте команду и следующей репликой пишите задачу обычным текстом.
+
+### OpenCode
+
+После установки будет доступна команда:
+
+```text
+/fastvps-hysteria2
+```
+
+`OpenCode` также сможет находить сам skill в `~/.agents/skills`.
+
+### Gemini CLI
+
+После установки будет доступна команда:
+
+```text
+/fastvps-hysteria2
+```
+
+Если удобнее без команды, можно прямо в запросе писать:
+
+```text
+Use the installed fastvps-hysteria2-setup skill and deploy Hysteria2 on FastVPS without a domain.
 ```
 
 ## Быстрый сценарий без домена
@@ -158,3 +299,5 @@ Windows PowerShell:
 ## Примечание
 
 Внутренние инструкции skill (`SKILL.md`, `references/`, `scripts/`) оставлены в техническом виде, удобном для агента. Человеческая документация и способ публикации описаны в этом `README.md`.
+
+Для `Codex` каноническим форматом остаётся `fastvps-hysteria2-setup/SKILL.md`. Для остальных agent CLI поверх него добавлены только тонкие адаптеры установки и вызова.
