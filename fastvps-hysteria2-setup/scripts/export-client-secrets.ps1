@@ -4,13 +4,7 @@ param(
     [Alias('Host')]
     [string]$ServerHost,
 
-    [string]$Domain,
-
-    [string]$Email,
-
-    [switch]$SelfSigned,
-
-    [int]$ListenPort = 0,
+    [string]$ClientEndpoint,
 
     [string]$User = 'root',
 
@@ -18,15 +12,7 @@ param(
 
     [string]$SshKey,
 
-    [string]$AuthPassword = '__AUTO__',
-
-    [switch]$WriteLocalSecrets,
-
-    [switch]$NoLocalSecrets,
-
-    [string]$OutputDir = (Join-Path (Get-Location) 'artifacts/fastvps-hysteria2'),
-
-    [switch]$SkipUpgrade
+    [string]$OutputDir = (Join-Path (Get-Location) 'artifacts/fastvps-hysteria2')
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,32 +79,10 @@ function Write-RedactedRemoteLines {
     }
 }
 
-$tlsMode = if ($SelfSigned) { 'self-signed' } else { 'acme' }
-
-if ($WriteLocalSecrets -and $NoLocalSecrets) {
-    Fail '-WriteLocalSecrets conflicts with -NoLocalSecrets'
-}
-
-if ($ListenPort -ne 0 -and ($ListenPort -lt 1 -or $ListenPort -gt 65535)) {
-    Fail 'ListenPort must be between 1 and 65535'
-}
-
-if ($tlsMode -eq 'acme') {
-    if (-not $Domain) {
-        Fail 'Domain is required in ACME mode'
-    }
-    if (-not $Email) {
-        Fail 'Email is required in ACME mode'
-    }
-    if ($ListenPort -ne 0 -and $ListenPort -ne 443) {
-        Fail 'ACME mode requires port 443'
-    }
-}
-
 Require-Command 'ssh'
 
 $scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.MyCommand.Path }
-$remoteScriptPath = Join-Path $scriptRoot 'remote_deploy_fastvps_hysteria2.sh'
+$remoteScriptPath = Join-Path $scriptRoot 'remote_export_fastvps_hysteria2.sh'
 $artifactModulePath = Join-Path $scriptRoot 'client_artifacts_fastvps_hysteria2.ps1'
 Require-File $remoteScriptPath
 Require-File $artifactModulePath
@@ -137,10 +101,8 @@ if ($SshKey) {
 }
 
 $remote = "$User@$ServerHost"
-$domainArg = if ($Domain) { $Domain } else { '_' }
-$emailArg = if ($Email) { $Email } else { '_' }
-$listenPortArg = if ($ListenPort -gt 0) { "$ListenPort" } else { '_' }
-$skipUpgradeArg = if ($SkipUpgrade) { '1' } else { '0' }
+$clientEndpointArg = if ($ClientEndpoint) { $ClientEndpoint } else { $ServerHost }
+$remoteCommand = "bash -s -- {0}" -f (Quote-BashArg $clientEndpointArg)
 
 Write-Log "Checking SSH access to $remote"
 $sshCheck = & ssh @sshOptions $remote 'echo "SSH OK: $(hostname)"' 2>&1
@@ -150,31 +112,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 $sshCheck | ForEach-Object { $_.ToString() }
 
-if ($tlsMode -eq 'acme') {
-    try {
-        $addresses = [System.Net.Dns]::GetHostAddresses($Domain) |
-            Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork } |
-            ForEach-Object { $_.IPAddressToString }
-        if ($addresses) {
-            Write-Log ("DNS A for {0}: {1}" -f $Domain, ($addresses -join ' '))
-        } else {
-            Write-Log ("Warning: no IPv4 A record found for {0} yet" -f $Domain)
-        }
-    } catch {
-        Write-Log ("Warning: DNS lookup failed for {0}: {1}" -f $Domain, $_.Exception.Message)
-    }
-}
-
-$remoteCommand = "bash -s -- {0} {1} {2} {3} {4} {5} {6}" -f `
-    (Quote-BashArg $tlsMode), `
-    (Quote-BashArg $domainArg), `
-    (Quote-BashArg $emailArg), `
-    (Quote-BashArg $AuthPassword), `
-    (Quote-BashArg $skipUpgradeArg), `
-    (Quote-BashArg $ServerHost), `
-    (Quote-BashArg $listenPortArg)
-
-Write-Log "Running remote deployment in $tlsMode mode"
+Write-Log 'Reading active Hysteria2 config from server'
 $remoteScript = [System.IO.File]::ReadAllText($remoteScriptPath)
 $remoteOutput = $remoteScript | & ssh @sshOptions $remote $remoteCommand 2>&1
 $remoteExit = $LASTEXITCODE
@@ -182,55 +120,39 @@ $remoteLines = @($remoteOutput | ForEach-Object { $_.ToString() })
 Write-RedactedRemoteLines -Lines $remoteLines
 
 if ($remoteExit -ne 0) {
-    Fail 'Remote deployment failed'
+    Fail 'Remote export failed'
 }
 
+$tlsMode = Get-RemoteValue -Lines $remoteLines -Name 'HY2_TLS_MODE'
 $remoteEndpoint = Get-RemoteValue -Lines $remoteLines -Name 'HY2_ENDPOINT'
 $remoteCertSha256 = Get-RemoteValue -Lines $remoteLines -Name 'HY2_CERT_SHA256'
 $remotePort = Get-RemoteValue -Lines $remoteLines -Name 'HY2_PORT'
 $remoteAuthPassword = Get-RemoteValue -Lines $remoteLines -Name 'HY2_AUTH_PASSWORD'
+$remoteDomain = Get-RemoteValue -Lines $remoteLines -Name 'HY2_DOMAIN'
+$remoteEmail = Get-RemoteValue -Lines $remoteLines -Name 'ACME_EMAIL'
 
+if (-not $tlsMode) {
+    Fail 'Could not determine TLS mode from remote config'
+}
 if (-not $remoteEndpoint) {
-    if ($tlsMode -eq 'acme') {
-        $remoteEndpoint = $Domain
-    } else {
-        $remoteEndpoint = $ServerHost
-    }
+    Fail 'Could not determine endpoint from remote config'
 }
-
 if (-not $remotePort) {
-    if ($ListenPort -gt 0) {
-        $remotePort = "$ListenPort"
-    } elseif ($tlsMode -eq 'acme') {
-        $remotePort = '443'
-    } else {
-        $remotePort = '8443'
-    }
+    Fail 'Could not determine listen port from remote config'
 }
-
 if (-not $remoteAuthPassword) {
-    Fail 'Could not determine effective auth password from remote output'
+    Fail 'Could not determine auth password from remote config'
 }
 
-if ($NoLocalSecrets) {
-    Write-Log 'Note: -NoLocalSecrets is now redundant because local secret writes are disabled by default'
-}
-
-if (-not $WriteLocalSecrets) {
-    Write-Log 'Local secret artifact generation is disabled by default'
-    Write-Log ("Run {0} -Host {1} -OutputDir {2} when you explicitly want local connection.env and client profiles" -f (Join-Path $scriptRoot 'export-client-secrets.ps1'), $ServerHost, $OutputDir)
-    exit 0
-}
-
-Write-Log "Creating local client artifacts in $OutputDir"
-$null = Write-Hysteria2LocalArtifacts `
+Write-Log "Writing local client artifacts in $OutputDir"
+$baseDir = Write-Hysteria2LocalArtifacts `
     -OutputDir $OutputDir `
     -TlsMode $tlsMode `
     -Endpoint $remoteEndpoint `
     -Port $remotePort `
     -AuthPassword $remoteAuthPassword `
     -CertSha256 $remoteCertSha256 `
-    -Domain $Domain `
-    -Email $Email
+    -Domain $remoteDomain `
+    -Email $remoteEmail
 
-Write-Log "Done. Keep $(Join-Path ([System.IO.Path]::GetFullPath($OutputDir)) 'server/connection.env') private."
+Write-Log "Done. Keep $(Join-Path $baseDir 'server/connection.env') private."

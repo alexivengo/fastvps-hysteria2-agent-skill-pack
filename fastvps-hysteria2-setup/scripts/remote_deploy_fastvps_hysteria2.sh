@@ -27,8 +27,8 @@ run() {
 }
 
 existing_listen_port() {
-  [[ -f /etc/hysteria/config.yaml ]] || return 1
-  awk '
+  run test -f /etc/hysteria/config.yaml || return 1
+  run awk '
     /^listen:/ {
       gsub(":", "", $2)
       print $2
@@ -38,8 +38,8 @@ existing_listen_port() {
 }
 
 existing_password() {
-  [[ -f /etc/hysteria/config.yaml ]] || return 1
-  awk '
+  run test -f /etc/hysteria/config.yaml || return 1
+  run awk '
     /^auth:/ { in_auth=1; next }
     in_auth && $1 == "password:" { print $2; exit }
     in_auth && /^[^[:space:]]/ { exit }
@@ -115,7 +115,7 @@ ensure_self_signed_cert() {
 
   run install -d -m 750 -o root -g hysteria /etc/hysteria
 
-  if [[ -f /etc/hysteria/server.crt && -f /etc/hysteria/server.key ]]; then
+  if run test -f /etc/hysteria/server.crt && run test -f /etc/hysteria/server.key; then
     run chown hysteria:hysteria /etc/hysteria/server.crt /etc/hysteria/server.key
     run chmod 644 /etc/hysteria/server.crt
     run chmod 600 /etc/hysteria/server.key
