@@ -259,6 +259,76 @@ Windows PowerShell:
 Use the installed fastvps-hysteria2-setup skill and deploy Hysteria2 on FastVPS without a domain.
 ```
 
+## Как работает
+
+Ниже последовательный workflow, по которому работает skill pack.
+
+1. Пользователь устанавливает skill pack в нужный agent CLI.
+2. Пользователь даёт минимальные входные данные:
+- `host`
+- `ssh user`
+- `ssh port`
+- если нужен `ACME`, ещё `domain` и `email`
+3. Если у пользователя нет неинтерактивного SSH-доступа, агент не просит писать пароль в чат.
+- Пользователь один раз сбрасывает root-пароль в панели FastVPS.
+- Пользователь добавляет свой публичный SSH-ключ на VPS.
+- После этого агент работает по ключу.
+4. Агент определяет режим развертывания:
+- `self-signed`, если домена нет
+- `acme`, если есть домен и свободен `443`
+5. Агент запускает `deploy`.
+- Используются wrapper-скрипты:
+  - [deploy_fastvps_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/deploy_fastvps_hysteria2.sh)
+  - [deploy_fastvps_hysteria2.ps1](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/deploy_fastvps_hysteria2.ps1)
+6. Локальный wrapper идёт по SSH на VPS и отправляет общий remote script:
+- [remote_deploy_fastvps_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/remote_deploy_fastvps_hysteria2.sh)
+7. На сервере remote script делает полный deploy:
+- показывает preflight
+- проверяет занятые порты
+- устанавливает `hysteria2` и зависимости
+- выбирает рабочий порт
+- переиспользует текущий пароль и self-signed сертификат, если они уже есть
+- пишет `/etc/hysteria/config.yaml`
+- включает `systemd` сервис
+- настраивает `ufw`
+- проверяет `systemctl`, `ss`, `journalctl`
+8. После deploy агент показывает только redacted summary:
+- `endpoint`
+- `port`
+- статус сервиса
+- без пароля и без `pinSHA256`
+9. Это поведение по умолчанию.
+- Локальные `connection.env`, URI и `sing-box` snippet не создаются.
+- Для одношагового opt-in есть `--write-local-secrets` или `-WriteLocalSecrets`.
+10. Если пользователь явно хочет клиентские артефакты, агент запускает отдельный export:
+- [export-client-secrets.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/export-client-secrets.sh)
+- [export-client-secrets.ps1](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/export-client-secrets.ps1)
+11. Export wrapper снова идёт по SSH и читает текущую серверную конфигурацию через:
+- [remote_export_fastvps_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/remote_export_fastvps_hysteria2.sh)
+12. Export получает:
+- `TLS mode`
+- `endpoint`
+- `listen port`
+- `auth password`
+- `pinSHA256`, если режим `self-signed`
+- `domain/email`, если режим `acme`
+13. После этого локально создаются клиентские артефакты:
+- `server/connection.env`
+- `client/mobile/profile.txt`
+- `client/desktop/profile.txt`
+- `client/manual/hysteria2-uri.txt`
+- `client/sing-box/hy2-outbound-snippet.json`
+14. Локальную генерацию делают helper-скрипты:
+- [client_artifacts_fastvps_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/client_artifacts_fastvps_hysteria2.sh)
+- [client_artifacts_fastvps_hysteria2.ps1](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/client_artifacts_fastvps_hysteria2.ps1)
+15. Пользователь импортирует профиль в клиент и подключается.
+16. После подключения агент или пользователь запускает проверки:
+- macOS: [check_macos_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/check_macos_hysteria2.sh)
+- Linux: [check_linux_hysteria2.sh](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/check_linux_hysteria2.sh)
+- Windows: [check_windows_hysteria2.ps1](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/scripts/check_windows_hysteria2.ps1)
+17. Дополнительно можно пройти BrowserLeaks-проверки из:
+- [validation.md](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/fastvps-hysteria2-setup/references/validation.md)
+
 ## Быстрый сценарий без домена
 
 Skill поддерживает безопасный базовый вариант:
