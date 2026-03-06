@@ -1,0 +1,4 @@
+interface:
+  display_name: "FastVPS Hysteria2 Setup"
+  short_description: "Deploy and verify Hysteria2 on FastVPS VPS"
+  default_prompt: "Use $fastvps-hysteria2-setup to configure and verify Hysteria2 on a FastVPS server."
