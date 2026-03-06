@@ -58,6 +58,7 @@ ACME example:
 5. Use the generated client artifacts.
 - The script writes connection details and URIs under the chosen output directory.
 - For self-signed mode the URI uses `insecure=1` together with `pinSHA256`, matching the tested reference setup.
+- If the user does not want local secret artifacts yet, run with `--no-local-secrets` or `-NoLocalSecrets`. In that mode the deploy still happens, but `connection.env`, URIs, and sing-box snippets are not written to local disk.
 
 6. Validate the tunnel after the user imports the profile.
 - macOS: run `scripts/check_macos_hysteria2.sh --expected-ip <vps-ip>`
@@ -112,6 +113,7 @@ ssh -o BatchMode=yes root@<vps-ip> 'echo ok'
 
 - Do not assume the VPS is clean just because the user says it is. FastVPS images may ship with FastPanel, `nginx`, mail services, or other listeners.
 - Do not rotate an existing password or self-signed cert unless the user explicitly wants new client credentials. The deploy script preserves them by default.
+- Prefer `--no-local-secrets` when the user wants a validation-only run or does not want VPN credentials written locally yet.
 - Do not use ACME mode unless the user has a domain and `443` can remain on Hysteria2. With `type: tls`, port `443` is operationally required.
 - Keep `/etc/hysteria` readable by the `hysteria` service user. The tested working permission model is in `references/fastvps-tested-profile.md`.
 

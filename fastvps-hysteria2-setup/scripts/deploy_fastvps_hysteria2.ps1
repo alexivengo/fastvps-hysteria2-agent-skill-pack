@@ -20,6 +20,8 @@ param(
 
     [string]$AuthPassword = '__AUTO__',
 
+    [switch]$NoLocalSecrets,
+
     [string]$OutputDir = (Join-Path (Get-Location) 'artifacts/fastvps-hysteria2'),
 
     [switch]$SkipUpgrade
@@ -72,6 +74,20 @@ function Get-RemoteValue {
         }
     }
     return ''
+}
+
+function Write-RedactedRemoteLines {
+    param([string[]]$Lines)
+
+    foreach ($line in $Lines) {
+        if ($line -like 'HY2_AUTH_PASSWORD=*') {
+            Write-Output 'HY2_AUTH_PASSWORD=[REDACTED]'
+        } elseif ($line -like 'HY2_CERT_SHA256=*') {
+            Write-Output 'HY2_CERT_SHA256=[REDACTED]'
+        } else {
+            Write-Output $line
+        }
+    }
 }
 
 $tlsMode = if ($SelfSigned) { 'self-signed' } else { 'acme' }
@@ -153,7 +169,7 @@ $remoteScript = [System.IO.File]::ReadAllText($remoteScriptPath)
 $remoteOutput = $remoteScript | & ssh @sshOptions $remote $remoteCommand 2>&1
 $remoteExit = $LASTEXITCODE
 $remoteLines = @($remoteOutput | ForEach-Object { $_.ToString() })
-$remoteLines | ForEach-Object { $_ }
+Write-RedactedRemoteLines -Lines $remoteLines
 
 if ($remoteExit -ne 0) {
     Fail "Remote deployment failed"
@@ -184,6 +200,12 @@ if (-not $remotePort) {
 
 if (-not $remoteAuthPassword) {
     Fail 'Could not determine effective auth password from remote output'
+}
+
+if ($NoLocalSecrets) {
+    Write-Log 'Local secret artifact generation skipped by -NoLocalSecrets'
+    Write-Log 'Re-run without -NoLocalSecrets when you explicitly want local connection.env and client profiles'
+    exit 0
 }
 
 $baseDir = [System.IO.Path]::GetFullPath($OutputDir)

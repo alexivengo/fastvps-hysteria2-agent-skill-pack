@@ -33,8 +33,10 @@
 fastvps-hysteria2-agent-skill-pack/
 ├── README.md
 ├── LICENSE
+├── .env.example
 ├── .gitignore
 ├── scripts/
+├── templates/
 ├── integrations/
 └── fastvps-hysteria2-setup/
     ├── SKILL.md
@@ -46,6 +48,8 @@ fastvps-hysteria2-agent-skill-pack/
 `fastvps-hysteria2-setup/` — канонический skill.
 
 `scripts/` — установщики для разных agent CLI.
+
+`templates/` — безопасные шаблоны, которые показывают формат секретных файлов без реальных значений.
 
 `integrations/` — vendor-specific command files для `Claude Code`, `OpenCode` и `Gemini CLI`.
 
@@ -72,6 +76,8 @@ cd fastvps-hysteria2-agent-skill-pack
 ./scripts/install_skill.sh --target all
 ```
 
+Если хотите сначала развернуть сервер без записи секретов на локальный диск, используйте в deploy wrapper флаг `--no-local-secrets`.
+
 Windows PowerShell:
 
 ```powershell
@@ -88,6 +94,8 @@ cd fastvps-hysteria2-agent-skill-pack
 ```powershell
 .\scripts\install_skill.ps1 -Target all
 ```
+
+Если нужен такой же безопасный режим в PowerShell, используйте флаг `-NoLocalSecrets` в deploy wrapper.
 
 ### Ручная установка по средам
 
@@ -271,12 +279,30 @@ macOS / Linux:
   --self-signed
 ```
 
+Без записи локальных секретных артефактов:
+
+```bash
+./fastvps-hysteria2-setup/scripts/deploy_fastvps_hysteria2.sh \
+  --host <VPS_IP> \
+  --self-signed \
+  --no-local-secrets
+```
+
 Windows PowerShell:
 
 ```powershell
 ./fastvps-hysteria2-setup/scripts/deploy_fastvps_hysteria2.ps1 `
   -Host <VPS_IP> `
   -SelfSigned
+```
+
+Без записи локальных секретных артефактов:
+
+```powershell
+./fastvps-hysteria2-setup/scripts/deploy_fastvps_hysteria2.ps1 `
+  -Host <VPS_IP> `
+  -SelfSigned `
+  -NoLocalSecrets
 ```
 
 ## Сценарий с доменом
@@ -327,6 +353,67 @@ Windows PowerShell:
 - реальные пароли и токены
 
 Для этого в репозитории уже есть `.gitignore`, но перед push всё равно стоит делать `git diff --cached`.
+
+## Как безопасно передавать и хранить секреты
+
+### Что считается секретом
+
+- root-пароль от VPS
+- приватный SSH-ключ
+- `HY2_AUTH_PASSWORD`
+- `connection.env`
+- клиентские URI
+- `pinSHA256` для self-signed профиля
+
+### Как передавать секреты правильно
+
+Лучший рабочий вариант:
+
+1. Пользователь не пишет root-пароль в чат.
+2. Пользователь вручную добавляет публичный SSH-ключ на VPS.
+3. Агент дальше работает только по SSH-ключу.
+4. Если нужен deploy без локального хранения клиентских секретов, агент использует:
+   - `--no-local-secrets` в bash
+   - `-NoLocalSecrets` в PowerShell
+
+В таком режиме:
+
+- сервер настраивается полностью;
+- сервис запускается;
+- локальные `connection.env`, URI и `sing-box` snippet не создаются;
+- в консоль выводится только redacted summary без пароля и pin.
+
+### Где секреты хранятся
+
+На VPS:
+
+- `/etc/hysteria/config.yaml`
+- `/etc/hysteria/server.key`
+- `/etc/hysteria/server.crt`
+
+Локально у оператора, только если deploy запущен без `--no-local-secrets`:
+
+- `artifacts/.../server/connection.env`
+- `artifacts/.../client/mobile/profile.txt`
+- `artifacts/.../client/desktop/profile.txt`
+- `artifacts/.../client/manual/hysteria2-uri.txt`
+- `artifacts/.../client/sing-box/hy2-outbound-snippet.json`
+
+### Что использовать как безопасные шаблоны
+
+В репозитории для этого есть:
+
+- [`.env.example`](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/.env.example)
+- [`connection.env.example`](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/templates/connection.env.example)
+- [`.gitignore`](/Users/a.burlakov/VibeCoding/vpn/fastvps-hysteria2-agent-skill-pack/.gitignore)
+
+### Практический безопасный режим
+
+Если пользователь ещё не готов хранить клиентские секреты локально:
+
+1. Делаете deploy с `--no-local-secrets`.
+2. Проверяете, что сервис на VPS поднялся.
+3. Когда готовы сохранить клиентские данные осознанно, повторно запускаете deploy без этого флага.
 
 ## Примечание
 

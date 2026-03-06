@@ -24,6 +24,7 @@ Options:
   --port PORT           SSH port (default: 22)
   --ssh-key PATH        SSH private key path
   --auth-password PASS  Explicit auth password; otherwise reuse existing or generate
+  --no-local-secrets    Do not write connection.env, URIs, or sing-box snippets to local disk
   --output-dir DIR      Local artifact directory (default: ./artifacts/fastvps-hysteria2)
   --skip-upgrade        Skip apt upgrade
   --help                Show this help
@@ -51,6 +52,23 @@ print(urllib.parse.quote(sys.argv[1], safe=''))
 PY
 }
 
+print_remote_output_redacted() {
+  local output="$1"
+  while IFS= read -r line; do
+    case "$line" in
+      HY2_AUTH_PASSWORD=*)
+        printf 'HY2_AUTH_PASSWORD=[REDACTED]\n'
+        ;;
+      HY2_CERT_SHA256=*)
+        printf 'HY2_CERT_SHA256=[REDACTED]\n'
+        ;;
+      *)
+        printf '%s\n' "$line"
+        ;;
+    esac
+  done <<< "$output"
+}
+
 HOST=""
 DOMAIN=""
 EMAIL=""
@@ -62,6 +80,7 @@ SSH_KEY=""
 AUTH_PASSWORD="__AUTO__"
 OUTPUT_DIR="$(pwd)/artifacts/fastvps-hysteria2"
 SKIP_UPGRADE="0"
+NO_LOCAL_SECRETS="0"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -100,6 +119,10 @@ while [[ $# -gt 0 ]]; do
     --auth-password)
       AUTH_PASSWORD="${2:-}"
       shift 2
+      ;;
+    --no-local-secrets)
+      NO_LOCAL_SECRETS="1"
+      shift
       ;;
     --output-dir)
       OUTPUT_DIR="${2:-}"
@@ -164,8 +187,6 @@ require_cmd python3
   exit 1
 }
 
-mkdir -p "$OUTPUT_DIR"
-
 SSH_OPTS=(
   -p "$SSH_PORT"
   -o BatchMode=yes
@@ -207,7 +228,7 @@ REMOTE_OUTPUT="$(
     "$LISTEN_PORT_ARG" < "$REMOTE_SCRIPT_PATH"
 )"
 
-printf '%s\n' "$REMOTE_OUTPUT"
+print_remote_output_redacted "$REMOTE_OUTPUT"
 
 REMOTE_ENDPOINT="$(printf '%s\n' "$REMOTE_OUTPUT" | awk -F= '/^HY2_ENDPOINT=/{print $2; exit}')"
 REMOTE_CERT_SHA256="$(printf '%s\n' "$REMOTE_OUTPUT" | awk -F= '/^HY2_CERT_SHA256=/{print $2; exit}')"
@@ -237,9 +258,17 @@ fi
   exit 1
 }
 
+if [[ "$NO_LOCAL_SECRETS" == "1" ]]; then
+  log "Local secret artifact generation skipped by --no-local-secrets"
+  log "Re-run without --no-local-secrets when you explicitly want local connection.env and client profiles"
+  exit 0
+fi
+
 log "Creating local client artifacts in $OUTPUT_DIR"
 TS_UTC="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 ENC_AUTH="$(url_encode "$REMOTE_AUTH_PASSWORD")"
+
+mkdir -p "$OUTPUT_DIR"
 
 mkdir -p \
   "$OUTPUT_DIR/server" \
