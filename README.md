@@ -8,8 +8,6 @@
 - `OpenCode`
 - `Gemini CLI`
 
-Ниже я использую название `Claude Code`. Если под `Cloud Code` вы имели в виду именно его, всё покрыто.
-
 Репозиторий подготовлен для публикации:
 - без реальных IP-адресов, доменов, паролей и токенов;
 - без клиентских URI и test artifacts;
@@ -32,7 +30,7 @@
 ## Структура репозитория
 
 ```text
-fastvps-hysteria2-codex-skill/
+fastvps-hysteria2-agent-skill-pack/
 ├── README.md
 ├── LICENSE
 ├── .gitignore
@@ -51,6 +49,8 @@ fastvps-hysteria2-codex-skill/
 
 `integrations/` — vendor-specific command files для `Claude Code`, `OpenCode` и `Gemini CLI`.
 
+`scripts/uninstall_skill.*` — удаление установленных адаптеров и skill-копий из пользовательских каталогов.
+
 ## Установка
 
 ### Быстрая установка через installer
@@ -58,8 +58,8 @@ fastvps-hysteria2-codex-skill/
 macOS / Linux:
 
 ```bash
-git clone git@github.com:alexivengo/fastvps-hysteria2-codex-skill.git
-cd fastvps-hysteria2-codex-skill
+git clone git@github.com:alexivengo/fastvps-hysteria2-agent-skill-pack.git
+cd fastvps-hysteria2-agent-skill-pack
 ./scripts/install_skill.sh --target codex
 ./scripts/install_skill.sh --target claude-code
 ./scripts/install_skill.sh --target opencode
@@ -75,8 +75,8 @@ cd fastvps-hysteria2-codex-skill
 Windows PowerShell:
 
 ```powershell
-git clone git@github.com:alexivengo/fastvps-hysteria2-codex-skill.git
-cd fastvps-hysteria2-codex-skill
+git clone git@github.com:alexivengo/fastvps-hysteria2-agent-skill-pack.git
+cd fastvps-hysteria2-agent-skill-pack
 .\scripts\install_skill.ps1 -Target codex
 .\scripts\install_skill.ps1 -Target claude-code
 .\scripts\install_skill.ps1 -Target opencode
@@ -166,6 +166,38 @@ New-Item -ItemType Directory -Force "$HOME\\.agents\\skills" | Out-Null
 New-Item -ItemType Directory -Force "$HOME\\.gemini\\commands" | Out-Null
 Copy-Item -Recurse -Force .\\fastvps-hysteria2-setup "$HOME\\.agents\\skills\\"
 Copy-Item -Force .\\integrations\\gemini-cli\\commands\\fastvps-hysteria2.toml "$HOME\\.gemini\\commands\\"
+```
+
+## Удаление
+
+Если нужно убрать установленный skill pack из пользовательских каталогов:
+
+macOS / Linux:
+
+```bash
+./scripts/uninstall_skill.sh --target claude-code
+./scripts/uninstall_skill.sh --target opencode
+./scripts/uninstall_skill.sh --target gemini-cli
+```
+
+Или сразу удалить только побочные установки вне `Codex`:
+
+```bash
+./scripts/uninstall_skill.sh --target non-codex
+```
+
+Windows PowerShell:
+
+```powershell
+.\scripts\uninstall_skill.ps1 -Target claude-code
+.\scripts\uninstall_skill.ps1 -Target opencode
+.\scripts\uninstall_skill.ps1 -Target gemini-cli
+```
+
+Или:
+
+```powershell
+.\scripts\uninstall_skill.ps1 -Target non-codex
 ```
 
 ## Как использовать в разных агентах
